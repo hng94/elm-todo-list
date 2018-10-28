@@ -1,0 +1,20 @@
+
+.logo {
+  margin: 20px 0;
+  max-width: 60px;
+  max-height: 60px;
+}
+
+.header {
+  font-size: 30px;
+  vertical-align: middle;
+  padding-left: 10px;
+}
+
+.container {
+  max-width: 400px;
+}
+
+.clickable {
+  cursor: pointer;
+}
