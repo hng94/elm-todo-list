@@ -1,24 +1,31 @@
-module Main exposing (Model, Msg(..), init, main, update, view)
+port module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Debug exposing (..)
-import  Array exposing (..)
+import Array exposing (..)
+import Json.Encode as E
+import Json.Decode as Decode
 
 ---- MODEL ----
+port setStorage : Model -> Cmd msg
+-- port toElm : (E.Value -> msg) -> Sub msg
+
 type alias Entry =
     { 
         id : Int, 
-        description : String
+        description : String,
+        done: Bool
     }
 
 newEntry : Int -> String -> Entry
 newEntry id desc =
     {
         id = id,
-        description = desc
+        description = desc,
+        done = False
     }
 
 type alias Model =
@@ -27,41 +34,50 @@ type alias Model =
         inputField: String,
         id: Int
     }
-
-todos: List Entry
-todos = []
-
-init : ( Model, Cmd Msg )
-init =
-    ( {
-        todoList = todos,
+emptyModel : Model
+emptyModel = 
+    {
+        todoList = [],
         inputField = "",
-        id = (List.maximum (List.map (\t -> t.id) todos) |> Maybe.withDefault 0) + 1
-    }, Cmd.none )
+        id = 0
+    }
+
+init : Maybe Model -> ( Model, Cmd Msg )
+init maybeModel =
+    (Maybe.withDefault emptyModel maybeModel, Cmd.none )
 
 
 
 ---- UPDATE ----
-
 
 type Msg
     = NoOp
     | Delete Int
     | AddTodo
     | UpdateInputField String
+    | Check Int
+
+updateWithStorage : Msg -> Model -> (Model, Cmd Msg)
+updateWithStorage msg model = 
+    let 
+        (updatedModel, cmds) = update msg model
+    in
+        case msg of
+            UpdateInputField str -> (updatedModel, cmds)
+            _ -> (updatedModel, Cmd.batch [setStorage updatedModel, cmds])
+        
+            
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         NoOp ->
             ( model, Cmd.none )
-    
         UpdateInputField str ->
             (
                 { model | inputField = str }
                 , Cmd.none
             )
-        
         AddTodo ->
             log model.inputField
             (
@@ -82,7 +98,18 @@ update msg model =
                 { model | todoList = List.filter (\t -> t.id /= id) model.todoList }
                 , Cmd.none
             )
-
+        Check id ->
+            let
+                checkEntry t = 
+                    if t.id == id then 
+                        { t | done =  not t.done}  
+                    else 
+                        t   
+            in
+            (
+                { model | todoList = List.map checkEntry model.todoList}
+                , Cmd.none
+            )
 
 
 ---- VIEW ----
@@ -105,7 +132,7 @@ view model =
 
 renderTodo : Entry -> Html Msg
 renderTodo todo = 
-    li  [ class "list-group-item"]
+    li  [ classList [("list-group-item", True), ("clickable", True), ("finished-todo", todo.done)], onClick(Check todo.id)]
         [ text todo.description
         , span [ class "text-danger float-right clickable", onClick (Delete todo.id) ]
             [ text "Delete"]
@@ -114,11 +141,11 @@ renderTodo todo =
 ---- PROGRAM ----
 
 
-main : Program () Model Msg
+main : Program (Maybe Model) Model Msg
 main =
     Browser.element
         { view = view
-        , init = \_ -> init
-        , update = update
-        , subscriptions = always Sub.none
+        , init = init
+        , update = updateWithStorage
+        , subscriptions = \_ -> Sub.none
         }

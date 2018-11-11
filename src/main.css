@@ -18,3 +18,8 @@
 .clickable {
   cursor: pointer;
 }
+
+.finished-todo {
+  text-decoration: line-through !important;
+  text-decoration-color: red !important;
+}
